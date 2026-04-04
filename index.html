@@ -2,150 +2,164 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Pantry - Scansione Data</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Smart Pantry Live OCR</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 20px; }
-        h1 { color: #333; margin-bottom: 5px; }
-        .subtitle { color: #666; font-size: 14px; margin-bottom: 20px; }
+        body { font-family: sans-serif; margin: 0; background: #000; color: white; overflow: hidden; text-align: center; }
         
-        /* Contenitore della fotocamera con mirino */
-        .camera-container {
+        /* Contenitore Video a tutto schermo */
+        #camera-wrapper {
             position: relative;
-            width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
-            border-radius: 15px;
-            overflow: hidden;
-            background: black;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            width: 100vw;
+            height: 70vh;
+            background: #222;
         }
         
-        /* Il mirino visivo (rettangolo rosso) */
+        video { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Il Mirino Fisso */
         .viewfinder {
             position: absolute;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 70%;  /* Larghezza del mirino */
-            height: 30%; /* Altezza del mirino */
-            border: 4px solid #ff3b30; /* Colore rosso Apple */
-            border-radius: 10px;
-            box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5); /* Scurisce l'esterno */
+            width: 80%; height: 25%;
+            border: 3px solid #00ff00; /* Verde per il mirino attivo */
+            border-radius: 12px;
+            box-shadow: 0 0 0 500px rgba(0, 0, 0, 0.6);
             z-index: 10;
-            pointer-events: none; /* Non blocca i tocchi */
         }
-        
-        #preview { width: 100%; display: block; }
-        
-        /* Pulsanti e Output */
-        .controls { margin-top: 20px; }
-        button { background: #007bff; color: white; border: none; padding: 15px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        button:active { background: #0056b3; }
-        #output { margin-top: 20px; padding: 15px; background: white; border-radius: 10px; min-height: 60px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .data-found { color: #28a745; font-weight: bold; font-size: 1.2em; }
-        .data-not-found { color: #dc3545; }
+
+        .label-overlay {
+            position: absolute;
+            top: -35px; left: 0;
+            background: #00ff00; color: black;
+            padding: 2px 10px; font-weight: bold; border-radius: 5px;
+            font-size: 14px;
+        }
+
+        /* Controlli */
+        .ui-panel {
+            height: 30vh;
+            background: #1a1a1a;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: white; color: black;
+            border: none; padding: 15px 40px;
+            border-radius: 50px; font-size: 18px; font-weight: bold;
+            cursor: pointer; width: 80%;
+        }
+
+        #result-display {
+            margin-top: 15px;
+            font-size: 16px;
+            color: #ccc;
+        }
     </style>
 </head>
 <body>
 
-    <h1>🍎 Smart Pantry</h1>
-    <p class="subtitle">Allinea la data di scadenza nel rettangolo rosso</p>
-
-    <div class="camera-container">
-        <div class="viewfinder"></div>
-        <img id="preview" src="https://via.placeholder.com/400x300.png?text=Carica+Foto" alt="Anteprima">
+    <div id="camera-wrapper">
+        <video id="video" autoplay playsinline></video>
+        <div class="viewfinder">
+            <div id="step-label" class="label-overlay">1. NOME PRODOTTO</div>
+        </div>
     </div>
 
-    <div class="controls">
-        <input type="file" accept="image/*" capture="environment" id="file-input" style="display: none;">
-        <button onclick="document.getElementById('file-input').click()">📸 Scansiona Data</button>
+    <div class="ui-panel">
+        <button id="capture-btn">CATTURA NOME</button>
+        <div id="result-display">Inquadra il nome del prodotto</div>
     </div>
-
-    <div id="output">Il risultato apparirà qui...</div>
 
     <canvas id="crop-canvas" style="display:none;"></canvas>
 
     <script>
-        const fileInput = document.getElementById('file-input');
-        const output = document.getElementById('output');
-        const preview = document.getElementById('preview');
-        const cropCanvas = document.getElementById('crop-canvas');
+        const video = document.getElementById('video');
+        const captureBtn = document.getElementById('capture-btn');
+        const resultDisplay = document.getElementById('result-display');
+        const stepLabel = document.getElementById('step-label');
+        const canvas = document.getElementById('crop-canvas');
 
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+        let currentStep = 'name'; // Può essere 'name' o 'date'
+        let productData = { name: '', date: '' };
 
-            output.innerHTML = "<em>Elaborazione immagine...</em>";
-            const reader = new FileReader();
-            
-            reader.onload = function(event) {
-                const img = new Image();
-                img.onload = function() {
-                    // Mostra l'immagine intera nell'anteprima
-                    preview.src = event.target.result;
-                    
-                    // RITAGLIO DELL'IMMAGINE: analizziamo solo l'area del mirino
-                    const ctx = cropCanvas.getContext('2d');
-                    
-                    // Definiamo l'area di ritaglio (corrispondente al mirino CSS)
-                    const cropWidth = img.width * 0.7;  // 70% della larghezza
-                    const cropHeight = img.height * 0.3; // 30% dell'altezza
-                    const startX = (img.width - cropWidth) / 2;
-                    const startY = (img.height - cropHeight) / 2;
-
-                    cropCanvas.width = cropWidth;
-                    cropCanvas.height = cropHeight;
-
-                    // Disegna solo la parte ritagliata sul canvas nascosto
-                    ctx.drawImage(img, startX, startY, cropWidth, cropHeight, 0, 0, cropWidth, cropHeight);
-                    
-                    // Avvia l'OCR sul ritaglio
-                    startOCR(cropCanvas);
-                };
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(file);
+        // 1. Avvia la fotocamera posteriore in diretta
+        navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "environment" }, 
+            audio: false 
+        }).then(stream => {
+            video.srcObject = stream;
+        }).catch(err => {
+            resultDisplay.innerText = "Errore fotocamera: " + err;
         });
 
-        async function startOCR(canvasToScan) {
-            output.innerHTML = "<em>Lettura data in corso (Tesseract.js)...</em>";
+        // 2. Logica al click del pulsante
+        captureBtn.addEventListener('click', async () => {
+            resultDisplay.innerText = "Analisi in corso...";
             
+            // Ritagliamo l'area del mirino
+            const ctx = canvas.getContext('2d');
+            const vWidth = video.videoWidth;
+            const vHeight = video.videoHeight;
+            
+            // Calcolo proporzioni mirino rispetto al video
+            const cropW = vWidth * 0.8;
+            const cropH = vHeight * 0.25;
+            const startX = (vWidth - cropW) / 2;
+            const startY = (vHeight - cropH) / 2;
+
+            canvas.width = cropW;
+            canvas.height = cropH;
+            ctx.drawImage(video, startX, startY, cropW, cropH, 0, 0, cropW, cropH);
+
             try {
-                const result = await Tesseract.recognize(
-                    canvasToScan,
-                    'ita', // Lingua italiana
-                    { logger: m => console.log(m.status + ": " + Math.round(m.progress * 100) + "%") }
-                );
-                
-                const text = result.data.text;
-                console.log("Testo estratto dal mirino:", text);
+                const result = await Tesseract.recognize(canvas, 'ita');
+                const text = result.data.text.trim();
 
-                // REGEX POTENZIATA: Trova GG/MM/AAAA, GG-MM-AAAA, GG.MM.AAAA (e anni a 2 cifre)
-                // Il pattern cerca: 2 cifre + (punto o barra o trattino) + 2 cifre + (stesso separatore) + 2 o 4 cifre
-                const datePattern = /\b(\d{1,2})([./-])(\d{1,2})\2(\d{2,4})\b/;
-                
-                // Puliamo il testo da spazi bianchi eccessivi prima della ricerca
-                const cleanText = text.replace(/\s+/g, ' ');
-                const foundDate = cleanText.match(datePattern);
-                
-                if (foundDate) {
-                    output.innerHTML = `
-                        <span class="data-found">Data Scadenza Rilevata:</span><br>
-                        <span style="font-size:1.5em; font-weight:bold;">${foundDate[0]}</span>
-                    `;
+                if (currentStep === 'name') {
+                    productData.name = text || "Sconosciuto";
+                    // Passiamo al secondo step
+                    currentStep = 'date';
+                    stepLabel.innerText = "2. DATA DI SCADENZA";
+                    stepLabel.style.background = "#ff3b30";
+                    document.querySelector('.viewfinder').style.borderColor = "#ff3b30";
+                    captureBtn.innerText = "CATTURA DATA";
+                    captureBtn.style.background = "#ff3b30";
+                    captureBtn.style.color = "white";
+                    resultDisplay.innerHTML = `Prodotto: <b>${productData.name}</b><br>Ora inquadra la data.`;
                 } else {
-                    output.innerHTML = `
-                        <span class="data-not-found">Data non trovata.</span><br>
-                        <span style="font-size:0.9em; color:#666;">Il testo letto era: "${text.substring(0, 30)}..."<br>Riprova allineando meglio la data.</span>
-                    `;
-                }
+                    // Cerca la data con la RegEx potenziata
+                    const datePattern = /\b(\d{1,2})([./-])(\d{1,2})\2(\d{2,4})\b/;
+                    const foundDate = text.match(datePattern);
 
-            } catch (err) {
-                output.innerText = "Errore durante la lettura OCR.";
-                console.error(err);
+                    if (foundDate) {
+                        productData.date = foundDate[0];
+                        resultDisplay.innerHTML = `✅ SALVATO!<br>Prodotto: ${productData.name}<br>Scade: ${productData.date}`;
+                        // Qui potremmo resettare o salvare nel database
+                        resetFlow();
+                    } else {
+                        resultDisplay.innerHTML = `❌ Data non letta bene.<br>Testo letto: "${text}"<br>Riprova!`;
+                    }
+                }
+            } catch (e) {
+                resultDisplay.innerText = "Errore OCR.";
             }
+        });
+
+        function resetFlow() {
+            setTimeout(() => {
+                currentStep = 'name';
+                stepLabel.innerText = "1. NOME PRODOTTO";
+                stepLabel.style.background = "#00ff00";
+                document.querySelector('.viewfinder').style.borderColor = "#00ff00";
+                captureBtn.innerText = "CATTURA NOME";
+                captureBtn.style.background = "white";
+                captureBtn.style.color = "black";
+                resultDisplay.innerText = "Inquadra il prossimo prodotto";
+            }, 5000);
         }
     </script>
 </body>

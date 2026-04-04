@@ -3,46 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Pantry - Scadenze</title>
+    <title>Smart Pantry Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --primary: #007bff; --success: #28a745; --danger: #ff3b30; --warning: #ffcc00; --text: #ffffff; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Area Fotocamera */
+        /* Fotocamera */
         #camera-wrapper { position: relative; width: 100%; height: 35vh; background: #000; flex-shrink: 0; }
         video { width: 100%; height: 100%; object-fit: cover; }
         .viewfinder { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 75%; height: 35%; border: 3px solid var(--success); border-radius: 12px;
-            box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); z-index: 5; transition: all 0.3s ease;
+            box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); z-index: 5;
         }
-        .label-overlay { position: absolute; top: -30px; left: 0; background: var(--success); color: #000; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; transition: all 0.3s ease; }
+        .label-overlay { position: absolute; top: -30px; left: 0; background: var(--success); color: #000; padding: 4px 10px; font-size: 12px; font-weight: bold; border-radius: 4px; }
 
-        /* Controlli e Ricerca */
-        .controls { padding: 15px; background: var(--card); border-bottom: 1px solid #333; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        button#capture-btn { background: #fff; color: #000; border: none; padding: 14px; border-radius: 30px; font-weight: bold; font-size: 16px; width: 100%; cursor: pointer; transition: transform 0.1s; }
-        button#capture-btn:active { transform: scale(0.98); }
-        #status-msg { margin-top: 10px; font-size: 13px; color: #bbb; text-align: center; min-height: 1.2em; }
+        /* Controlli e Backup */
+        .controls { padding: 15px; background: var(--card); border-bottom: 1px solid #333; z-index: 10; }
+        button#capture-btn { background: #fff; color: #000; border: none; padding: 14px; border-radius: 30px; font-weight: bold; font-size: 16px; width: 100%; cursor: pointer; margin-bottom: 10px; }
+        #status-msg { font-size: 13px; color: #bbb; text-align: center; margin-bottom: 10px; min-height: 1.2em; }
         
-        .search-container { margin-top: 15px; }
-        #search-bar { width: 100%; padding: 12px 20px; border-radius: 25px; border: 1px solid #444; background: #2a2a2a; color: #fff; font-size: 14px; box-sizing: border-box; outline: none; }
+        .search-container { display: flex; flex-direction: column; gap: 8px; }
+        #search-bar { width: 100%; padding: 12px 20px; border-radius: 25px; border: 1px solid #444; background: #2a2a2a; color: #fff; box-sizing: border-box; outline: none; }
+        
+        .backup-btns { display: flex; gap: 8px; }
+        .btn-small { flex: 1; background: #333; color: #ccc; border: 1px solid #444; padding: 8px; border-radius: 20px; font-size: 11px; cursor: pointer; }
 
-        /* Lista Inventario */
-        .inventory { flex-grow: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
+        /* Lista */
+        .inventory { flex-grow: 1; overflow-y: auto; padding: 15px; padding-bottom: 30px; }
         .product-card { 
             background: var(--card); margin-bottom: 10px; padding: 15px; border-radius: 12px;
-            display: flex; justify-content: space-between; align-items: center;
-            border-left: 5px solid var(--primary); animation: fadeIn 0.3s ease;
+            display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--primary);
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .product-info b { display: block; font-size: 16px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+        .product-info b { display: block; font-size: 16px; margin-bottom: 4px; }
         .product-info span { font-size: 13px; color: #aaa; }
-        
         .actions { display: flex; gap: 8px; }
-        .actions button { background: #333; border: none; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 16px; cursor: pointer; }
-        .actions .btn-delete { color: var(--danger); }
+        .actions button { background: #333; border: none; color: #fff; padding: 8px 12px; border-radius: 8px; font-size: 16px; }
 
         canvas { display: none; }
     </style>
@@ -58,16 +55,19 @@
 
     <div class="controls">
         <button id="capture-btn">CATTURA NOME</button>
-        <div id="status-msg">Allinea il nome del prodotto nel mirino</div>
+        <div id="status-msg">Inquadra il nome del prodotto</div>
         
         <div class="search-container">
             <input type="text" id="search-bar" placeholder="🔍 Cerca nella dispensa...">
+            <div class="backup-btns">
+                <button class="btn-small" onclick="exportBackup()">📤 SALVA BACKUP (FILE)</button>
+                <button class="btn-small" onclick="document.getElementById('import-file').click()">📥 CARICA BACKUP</button>
+            </div>
+            <input type="file" id="import-file" style="display:none" accept=".json">
         </div>
     </div>
 
-    <div class="inventory" id="inventory-list">
-        </div>
-
+    <div class="inventory" id="inventory-list"></div>
     <canvas id="crop-canvas"></canvas>
 
     <script>
@@ -79,12 +79,13 @@
         const canvas = document.getElementById('crop-canvas');
         const stepLabel = document.getElementById('step-label');
         const viewfinder = document.getElementById('viewfinder');
+        const importFile = document.getElementById('import-file');
 
         let currentStep = 'name';
         let tempProduct = { name: '', date: '' };
         let db;
 
-        // --- 1. DATABASE SETUP ---
+        // --- DATABASE ---
         const request = indexedDB.open("PantryDB", 1);
         request.onupgradeneeded = (e) => {
             db = e.target.result;
@@ -92,23 +93,16 @@
                 db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
             }
         };
-        request.onsuccess = (e) => {
-            db = e.target.result;
-            displayProducts();
-        };
+        request.onsuccess = (e) => { db = e.target.result; displayProducts(); };
 
-        // --- 2. TELECAMERA LIVE ---
+        // --- TELECAMERA ---
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
-            .then(stream => { video.srcObject = stream; })
-            .catch(err => { statusMsg.innerText = "Errore camera: " + err; });
+            .then(stream => { video.srcObject = stream; });
 
-        // --- 3. LOGICA DI CATTURA E OCR ---
+        // --- OCR E CATTURA ---
         captureBtn.addEventListener('click', async () => {
             const ctx = canvas.getContext('2d');
-            const vW = video.videoWidth;
-            const vH = video.videoHeight;
-            
-            // Coordinate ritaglio (mirino)
+            const vW = video.videoWidth; const vH = video.videoHeight;
             const cW = vW * 0.75; const cH = vH * 0.35;
             const sX = (vW - cW) / 2; const sY = (vH - cH) / 2;
             canvas.width = cW; canvas.height = cH;
@@ -123,7 +117,7 @@
                     tempProduct.name = text.replace(/\n/g, " ") || "Sconosciuto";
                     currentStep = 'date';
                     updateUI('date');
-                    statusMsg.innerHTML = `Nome: <b>${tempProduct.name}</b>. Ora inquadra la DATA.`;
+                    statusMsg.innerHTML = `Nome: <b>${tempProduct.name}</b>. Inquadra la DATA.`;
                 } else {
                     const datePattern = /\b(\d{1,2})([./-])(\d{1,2})\2(\d{2,4})\b/;
                     const foundDate = text.match(datePattern);
@@ -132,7 +126,7 @@
                         saveProduct({...tempProduct});
                         resetFlow();
                     } else {
-                        statusMsg.innerHTML = `<span style="color:#ff3b30">Data non letta. Riprova.</span>`;
+                        statusMsg.innerHTML = `<span style="color:var(--danger)">Data non letta. Riprova.</span>`;
                     }
                 }
             } catch (e) { statusMsg.innerText = "Errore OCR."; }
@@ -140,7 +134,7 @@
 
         function updateUI(step) {
             const isDate = step === 'date';
-            const color = isDate ? "#ff3b30" : "#28a745";
+            const color = isDate ? "var(--danger)" : "var(--success)";
             stepLabel.innerText = isDate ? "2. DATA DI SCADENZA" : "1. NOME PRODOTTO";
             stepLabel.style.background = color;
             viewfinder.style.borderColor = color;
@@ -149,14 +143,11 @@
             captureBtn.innerText = isDate ? "CATTURA DATA" : "CATTURA NOME";
         }
 
-        // --- 4. GESTIONE DATI E LISTA ---
+        // --- GESTIONE DATI ---
         function saveProduct(product) {
             const tx = db.transaction("products", "readwrite");
             tx.objectStore("products").add(product);
-            tx.oncomplete = () => {
-                searchBar.value = ""; 
-                displayProducts();
-            };
+            tx.oncomplete = () => { searchBar.value = ""; displayProducts(); };
         }
 
         function displayProducts(filter = "") {
@@ -167,40 +158,20 @@
             store.openCursor().onsuccess = (e) => {
                 const cursor = e.target.result;
                 if (cursor) {
-                    if (cursor.value.name.toLowerCase().includes(filter.toLowerCase())) {
-                        allProducts.push(cursor.value);
-                    }
+                    if (cursor.value.name.toLowerCase().includes(filter.toLowerCase())) allProducts.push(cursor.value);
                     cursor.continue();
                 } else {
-                    // ORDINAMENTO CRONOLOGICO
                     allProducts.sort((a, b) => parseDate(a.date) - parseDate(b.date));
-
                     allProducts.forEach(p => {
-                        const expiry = parseDate(p.date);
-                        const today = new Date(); today.setHours(0,0,0,0);
-                        const daysLeft = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-
+                        const days = Math.ceil((parseDate(p.date) - new Date().setHours(0,0,0,0)) / 86400000);
                         const card = document.createElement('div');
                         card.className = 'product-card';
-                        
-                        // Semaforo scadenze
-                        if (daysLeft < 0) card.style.borderLeftColor = "#444";
-                        else if (daysLeft <= 3) card.style.borderLeftColor = "var(--danger)";
-                        else if (daysLeft <= 7) card.style.borderLeftColor = "var(--warning)";
-                        else card.style.borderLeftColor = "var(--success)";
-
-                        card.innerHTML = `
-                            <div class="product-info">
-                                <b>${p.name}</b>
-                                <span style="color: ${daysLeft <= 3 ? 'var(--danger)' : '#aaa'}">
-                                    Scadenza: ${p.date} ${daysLeft < 0 ? '(SCADUTO)' : (daysLeft === 0 ? '(OGGI!)' : '')}
-                                </span>
-                            </div>
+                        card.style.borderLeftColor = days < 0 ? "#444" : (days <= 3 ? "var(--danger)" : (days <= 7 ? "var(--warning)" : "var(--success)"));
+                        card.innerHTML = `<div class="product-info"><b>${p.name}</b><span>Scadenza: ${p.date} ${days < 0 ? '❌' : ''}</span></div>
                             <div class="actions">
                                 <button onclick="editProduct(${p.id}, '${p.name.replace(/'/g, "\\'")}')">✎</button>
-                                <button class="btn-delete" onclick="deleteProduct(${p.id})">🗑</button>
-                            </div>
-                        `;
+                                <button onclick="deleteProduct(${p.id})" style="color:var(--danger)">🗑</button>
+                            </div>`;
                         inventoryList.appendChild(card);
                     });
                 }
@@ -227,23 +198,41 @@
             if (newName) {
                 const store = db.transaction("products", "readwrite").objectStore("products");
                 store.get(id).onsuccess = (e) => {
-                    const data = e.target.result;
-                    data.name = newName;
+                    const data = e.target.result; data.name = newName;
                     store.put(data).onsuccess = () => displayProducts(searchBar.value);
                 };
             }
         };
 
-        searchBar.addEventListener('input', () => displayProducts(searchBar.value));
+        // --- BACKUP & RIPRISTINO ---
+        window.exportBackup = () => {
+            const store = db.transaction("products").objectStore("products");
+            store.getAll().onsuccess = (e) => {
+                const blob = new Blob([JSON.stringify(e.target.result, null, 2)], {type: "application/json"});
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = `backup_dispensa_${new Date().toISOString().slice(0,10)}.json`;
+                a.click();
+            };
+        };
 
+        importFile.onchange = (e) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const data = JSON.parse(ev.target.result);
+                const tx = db.transaction("products", "readwrite");
+                const store = tx.objectStore("products");
+                data.forEach(item => { delete item.id; store.add(item); });
+                tx.oncomplete = () => { alert("Dati caricati!"); displayProducts(); };
+            };
+            reader.readAsText(e.target.files[0]);
+        };
+
+        searchBar.addEventListener('input', () => displayProducts(searchBar.value));
         function resetFlow() {
-            setTimeout(() => {
-                currentStep = 'name';
-                tempProduct = { name: '', date: '' };
-                updateUI('name');
-                statusMsg.innerText = "Pronto per un nuovo prodotto!";
-            }, 3000);
+            setTimeout(() => { currentStep = 'name'; tempProduct = { name: '', date: '' }; updateUI('name'); statusMsg.innerText = "Pronto!"; }, 3000);
         }
     </script>
 </body>
 </html>
+

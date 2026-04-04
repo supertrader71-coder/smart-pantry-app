@@ -3,40 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Pantry Pro - Scorte</title>
+    <title>Smart Pantry Pro - Final</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --primary: #007bff; --success: #28a745; --danger: #ff3b30; --warning: #ffcc00; --text: #ffffff; }
         body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
+        /* Camera */
         #camera-wrapper { position: relative; width: 100%; height: 25vh; background: #000; flex-shrink: 0; }
         video { width: 100%; height: 100%; object-fit: cover; }
         .viewfinder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 35%; border: 3px solid var(--success); border-radius: 12px; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); z-index: 5; }
         .label-overlay { position: absolute; top: -30px; left: 0; background: var(--success); color: #000; padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; }
 
+        /* Controls */
         .controls { padding: 12px; background: var(--card); border-bottom: 1px solid #333; z-index: 10; }
-        .btn-main { background: #fff; color: #000; border: none; padding: 12px; border-radius: 30px; font-weight: bold; width: 100%; margin-bottom: 8px; }
-        .btn-manual { background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 30px; width: 100%; margin-bottom: 10px; }
+        .btn-main { background: #fff; color: #000; border: none; padding: 12px; border-radius: 30px; font-weight: bold; width: 100%; margin-bottom: 8px; font-size: 15px; }
+        .btn-manual { background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 30px; width: 100%; margin-bottom: 10px; font-size: 14px; }
         #search-bar { width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid #444; background: #2a2a2a; color: #fff; outline: none; box-sizing: border-box; }
         
-        /* Modal Inserimento/Modifica */
+        /* Modal */
         #manual-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; justify-content: center; align-items: center; }
         .modal-content { background: var(--card); padding: 20px; border-radius: 20px; width: 85%; max-width: 350px; }
-        .modal-content input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #121212; color: #fff; box-sizing: border-box; }
-        .qty-row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+        .modal-content input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #121212; color: #fff; box-sizing: border-box; font-size: 16px; }
         
-        /* Lista Prodotti */
+        /* Inventory List */
         .inventory { flex-grow: 1; overflow-y: auto; padding: 12px; }
-        .product-card { background: var(--card); margin-bottom: 10px; padding: 12px; border-radius: 12px; display: flex; align-items: center; border-left: 5px solid var(--primary); }
-        .product-info { flex-grow: 1; min-width: 0; }
+        .product-card { background: var(--card); margin-bottom: 10px; padding: 12px; border-radius: 12px; display: flex; align-items: center; border-left: 5px solid var(--primary); gap: 10px; }
+        .product-info { flex: 1; min-width: 0; }
         .product-info b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .product-info span { font-size: 12px; color: #aaa; }
         
-        .qty-controls { display: flex; align-items: center; gap: 8px; margin-right: 12px; background: #2a2a2a; padding: 4px 8px; border-radius: 20px; }
-        .qty-controls button { background: #444; border: none; color: white; width: 24px; height: 24px; border-radius: 50%; font-weight: bold; }
+        /* Quantity & Actions */
+        .qty-controls { display: flex; align-items: center; gap: 8px; background: #2a2a2a; padding: 5px 10px; border-radius: 20px; }
+        .qty-controls button { background: #444; border: none; color: white; width: 26px; height: 26px; border-radius: 50%; font-weight: bold; }
         .qty-val { min-width: 15px; text-align: center; font-weight: bold; font-size: 14px; }
         
-        .actions button { background: transparent; border: none; color: #888; font-size: 18px; padding: 5px; }
+        .actions { display: flex; gap: 5px; }
+        .actions button { background: transparent; border: none; font-size: 20px; padding: 5px; cursor: pointer; }
+        .btn-edit { color: #888; }
+        .btn-delete { color: var(--danger); }
 
         canvas { display: none; }
     </style>
@@ -58,16 +63,16 @@
 
     <div id="manual-modal">
         <div class="modal-content">
-            <h2 id="modal-title" style="font-size:16px; text-align:center;">Nuovo Prodotto</h2>
+            <h2 id="modal-title" style="font-size:16px; text-align:center; margin-bottom:15px;">Nuovo Prodotto</h2>
             <input type="text" id="man-name" placeholder="Nome Prodotto" autocomplete="off">
             <input type="text" id="man-date" placeholder="Scadenza (GG.MM.AAAA)" inputmode="numeric" maxlength="10">
-            <div class="qty-row">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin: 10px 0;">
                 <span>Quantità:</span>
-                <input type="number" id="man-qty" value="1" style="width: 60px; margin:0; text-align:center;">
+                <input type="number" id="man-qty" value="1" style="width: 70px; margin:0; text-align:center;">
             </div>
-            <div style="display:flex; gap:10px; margin-top:15px;">
-                <button onclick="closeManualModal()" style="flex:1; padding:10px; border-radius:8px; border:none; background:#444; color:white;">Chiudi</button>
-                <button id="save-btn" onclick="saveManual()" style="flex:2; padding:10px; border-radius:8px; border:none; background:var(--success); color:white; font-weight:bold;">Salva</button>
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button onclick="closeManualModal()" style="flex:1; padding:12px; border-radius:10px; border:none; background:#444; color:white;">Annulla</button>
+                <button onclick="saveManual()" style="flex:2; padding:12px; border-radius:10px; border:none; background:var(--success); color:white; font-weight:bold;">Conferma</button>
             </div>
         </div>
     </div>
@@ -88,7 +93,7 @@
         let editingId = null;
         let db;
 
-        const request = indexedDB.open("PantryDB", 2); // Versione 2 per nuove colonne
+        const request = indexedDB.open("PantryDB", 2);
         request.onupgradeneeded = (e) => {
             db = e.target.result;
             if (!db.objectStoreNames.contains("products")) {
@@ -99,7 +104,6 @@
 
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => video.srcObject = s);
 
-        // OCR SCAN
         captureBtn.addEventListener('click', async () => {
             const ctx = canvas.getContext('2d');
             const vW = video.videoWidth; const vH = video.videoHeight;
@@ -118,14 +122,12 @@
                     const datePattern = /\b(\d{1,2})([./-])(\d{1,2})\2(\d{2,4})\b/;
                     const foundDate = text.match(datePattern);
                     tempProduct.date = foundDate ? foundDate[0].replace(/\s/g, "") : "";
-                    // Apri il modal per conferma/correzione automatica
                     openManualModal(tempProduct.name, tempProduct.date);
                     resetFlow();
                 }
-            } catch (e) { alert("Errore OCR"); }
+            } catch (e) { alert("Errore lettura testo."); }
         });
 
-        // LOGICA MANUALE & MODIFICA
         function openManualModal(name = "", date = "", qty = 1, id = null) {
             editingId = id;
             document.getElementById('modal-title').innerText = id ? "Modifica Prodotto" : "Nuovo Prodotto";
@@ -139,8 +141,8 @@
 
         function saveManual() {
             const p = {
-                name: document.getElementById('man-name').value,
-                date: document.getElementById('man-date').value,
+                name: document.getElementById('man-name').value || "Senza nome",
+                date: document.getElementById('man-date').value || "00.00.0000",
                 qty: parseInt(document.getElementById('man-qty').value) || 1
             };
             if (editingId) p.id = editingId;
@@ -149,7 +151,6 @@
             tx.oncomplete = () => { closeManualModal(); displayProducts(); };
         }
 
-        // AUTO-FORMAT DATA
         document.getElementById('man-date').addEventListener('input', (e) => {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 2 && v.length <= 4) v = v.slice(0,2) + '.' + v.slice(2);
@@ -161,13 +162,18 @@
             const store = db.transaction("products", "readwrite").objectStore("products");
             store.get(id).onsuccess = (e) => {
                 const p = e.target.result;
-                p.qty += delta;
-                if (p.qty <= 0) {
-                    if (confirm("Eliminare il prodotto esaurito?")) store.delete(id).onsuccess = () => displayProducts();
-                } else {
-                    store.put(p).onsuccess = () => displayProducts();
-                }
+                p.qty = (p.qty || 1) + delta;
+                if (p.qty < 1) p.qty = 1; // Non scende sotto 1 col tasto meno (usa il cestino per eliminare)
+                store.put(p).onsuccess = () => displayProducts();
             };
+        }
+
+        function deleteProduct(id) {
+            if (confirm("Vuoi eliminare definitivamente questo prodotto?")) {
+                const tx = db.transaction("products", "readwrite");
+                tx.objectStore("products").delete(id);
+                tx.oncomplete = () => displayProducts();
+            }
         }
 
         function displayProducts(filter = "") {
@@ -192,7 +198,8 @@
                                 <button onclick="changeQty(${p.id}, 1)">+</button>
                             </div>
                             <div class="actions">
-                                <button onclick="openManualModal('${p.name.replace(/'/g, "\\'")}', '${p.date}', ${p.qty || 1}, ${p.id})">✎</button>
+                                <button class="btn-edit" onclick="openManualModal('${p.name.replace(/'/g, "\\'")}', '${p.date}', ${p.qty || 1}, ${p.id})">✎</button>
+                                <button class="btn-delete" onclick="deleteProduct(${p.id})">🗑</button>
                             </div>`;
                         inventoryList.appendChild(card);
                     });

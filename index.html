@@ -6,20 +6,39 @@
     <title>Smart Pantry Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
-        :root { --bg: #121212; --card: #1e1e1e; --primary: #007bff; --success: #28a745; --danger: #ff3b30; --warning: #ffcc00; --text: #ffffff; }
-        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        :root { --bg: #121212; --card: #1e1e1e; --primary: #007bff; --success: #28a745; --danger: #ff3b30; --warning: #ffcc00; --text: #ffffff; --freezer: #00a2ff; }
+        body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
         
-        /* Area Fotocamera Gestita */
-        #camera-wrapper { position: relative; width: 100%; height: 25vh; background: #000; flex-shrink: 0; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #333; }
+        /* Schermata di Selezione Iniziale (Hub) */
+        #hub-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; gap: 20px; padding: 20px; box-sizing: border-box; }
+        .hub-title { font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+        .hub-btn { width: 100%; max-width: 300px; padding: 40px 20px; border-radius: 24px; border: none; font-size: 20px; font-weight: bold; color: white; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: 0 8px 16px rgba(0,0,0,0.3); transition: transform 0.2s; }
+        .hub-btn:active { transform: scale(0.95); }
+        #btn-choose-frigo { background: linear-gradient(135deg, #2c3e50, #2980b9); }
+        #btn-choose-freezer { background: linear-gradient(135deg, #1f4068, var(--freezer)); }
+        .hub-btn span { font-size: 13px; font-weight: normal; opacity: 0.8; }
+
+        /* Schermata Principale Applicazione */
+        #app-screen { display: none; flex-direction: column; height: 100vh; }
+        
+        /* Navbar superiore per tornare indietro */
+        .nav-header { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--card); border-bottom: 1px solid #333; }
+        .btn-back { background: #333; border: none; color: #fff; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; }
+        .nav-title { font-size: 16px; font-weight: bold; }
+
+        /* Area Fotocamera (solo per Frigo) */
+        #camera-wrapper { position: relative; width: 100%; height: 20vh; background: #000; flex-shrink: 0; display: none; justify-content: center; align-items: center; border-bottom: 1px solid #333; }
         video { width: 100%; height: 100%; object-fit: cover; display: none; }
         .viewfinder { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 35%; border: 3px solid var(--success); border-radius: 12px; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); z-index: 5; }
         .label-overlay { position: absolute; top: -30px; left: 0; background: var(--success); color: #000; padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; }
-        #camera-placeholder { color: #888; text-align: center; cursor: pointer; padding: 20px; font-weight: bold; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #1a1a1a; }
+        #camera-placeholder { color: #888; text-align: center; cursor: pointer; padding: 10px; font-weight: bold; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #1a1a1a; }
 
         /* Controlli */
         .controls { padding: 12px; background: var(--card); border-bottom: 1px solid #333; z-index: 10; }
-        .btn-main { background: #fff; color: #000; border: none; padding: 12px; border-radius: 30px; font-weight: bold; width: 100%; margin-bottom: 8px; font-size: 15px; display: none; }
-        .btn-manual { background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 30px; width: 100%; margin-bottom: 10px; font-size: 14px; }
+        .btn-main { background: #fff; color: #000; border: none; padding: 12px; border-radius: 30px; font-weight: bold; width: 100%; margin-bottom: 8px; font-size: 14px; display: none; }
+        .btn-row { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn-manual { flex: 1; background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 30px; font-size: 13px; font-weight: bold; }
+        .btn-voice { flex: 1; background: var(--primary); color: #fff; border: 1px solid #0056b3; padding: 10px; border-radius: 30px; font-size: 13px; font-weight: bold; }
         #search-bar { width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid #444; background: #2a2a2a; color: #fff; outline: none; box-sizing: border-box; }
         
         /* Modal */
@@ -34,7 +53,7 @@
         .product-info b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .product-info span { font-size: 12px; color: #aaa; }
         
-        /* Quantità e Azioni */
+        /* Quantità e Pulsanti */
         .qty-controls { display: flex; align-items: center; gap: 8px; background: #2a2a2a; padding: 5px 10px; border-radius: 20px; }
         .qty-controls button { background: #444; border: none; color: white; width: 26px; height: 26px; border-radius: 50%; font-weight: bold; }
         .qty-val { min-width: 15px; text-align: center; font-weight: bold; font-size: 14px; }
@@ -49,28 +68,50 @@
 </head>
 <body>
 
-    <div id="camera-wrapper">
-        <div id="camera-placeholder" onclick="startCamera()">
-            <span>📸 Tocca qui per attivare la fotocamera</span>
-            <small style="font-size:11px; color:#666; margin-top:5px;">Necessario solo per scansione OCR</small>
+    <div id="hub-screen">
+        <div class="hub-title">Gestione Dispensa Professionale</div>
+        <button id="btn-choose-frigo" class="hub-btn" onclick="switchZone('frigo')">
+            🧊 GESTIONE FRIGO
+            <span>Monitoraggio scadenze a breve termine</span>
+        </button>
+        <button id="btn-choose-freezer" class="hub-btn" onclick="switchZone('freezer')">
+            ❄️ GESTIONE FREEZER
+            <span>Inventario scorte a lungo termine (No Scadenza)</span>
+        </button>
+    </div>
+
+    <div id="app-screen">
+        <div class="nav-header">
+            <button class="btn-back" onclick="goToHub()">⬅️ Menu</button>
+            <div class="nav-title" id="current-zone-title">Ambiente</div>
+            <div style="width:55px"></div> </div>
+
+        <div id="camera-wrapper">
+            <div id="camera-placeholder" onclick="startCamera()">
+                <span>📸 Attiva Fotocamera OCR</span>
+            </div>
+            <video id="video" autoplay playsinline></video>
+            <div class="viewfinder" id="viewfinder"><div id="step-label" class="label-overlay">1. NOME PRODOTTO</div></div>
         </div>
-        <video id="video" autoplay playsinline></video>
-        <div class="viewfinder" id="viewfinder"><div id="step-label" class="label-overlay">1. NOME PRODOTTO</div></div>
-    </div>
 
-    <div class="controls">
-        <button id="capture-btn" class="btn-main">📸 SCANSIONA TESTO</button>
-        <button onclick="openManualModal()" class="btn-manual">⌨️ INSERIMENTO MANUALE</button>
-        <input type="text" id="search-bar" placeholder="🔍 Cerca prodotto...">
-    </div>
+        <div class="controls">
+            <button id="capture-btn" class="btn-main">📸 SCANSIONA TESTO VIA OCR</button>
+            <div class="btn-row">
+                <button onclick="openManualModal()" class="btn-manual">⌨️ INSERISCI MANUALMENTE</button>
+                <button onclick="startVoiceRecognition()" class="btn-voice">🎙️ DETTA A VOCE</button>
+            </div>
+            <input type="text" id="search-bar" placeholder="🔍 Cerca prodotto...">
+        </div>
 
-    <div class="inventory" id="inventory-list"></div>
+        <div class="inventory" id="inventory-list"></div>
+    </div>
 
     <div id="manual-modal">
         <div class="modal-content">
             <h2 id="modal-title" style="font-size:16px; text-align:center; margin-bottom:15px;">Nuovo Prodotto</h2>
             <input type="text" id="man-name" placeholder="Nome Prodotto" autocomplete="off">
             <input type="text" id="man-date" placeholder="Scadenza (GG.MM.AAAA)" inputmode="numeric" maxlength="10">
+            
             <div style="display:flex; align-items:center; justify-content:space-between; margin: 10px 0;">
                 <span>Quantità:</span>
                 <input type="number" id="man-qty" value="1" style="width: 70px; margin:0; text-align:center;">
@@ -94,42 +135,75 @@
         const viewfinder = document.getElementById('viewfinder');
         const cameraPlaceholder = document.getElementById('camera-placeholder');
         
+        let currentZone = 'frigo'; // Stato: 'frigo' o 'freezer'
         let currentStep = 'name';
         let tempProduct = { name: '', date: '', qty: 1 };
         let editingId = null;
         let db;
         let streamInstance = null;
 
-        // --- DATABASE INDEXED DB ---
-        const request = indexedDB.open("PantryDB", 2);
+        // --- DATABASE INDEXED DB V3 (Aggiunto supporto al campo "zone") ---
+        const request = indexedDB.open("PantryDB", 3);
         request.onupgradeneeded = (e) => {
             db = e.target.result;
             if (!db.objectStoreNames.contains("products")) {
                 db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
             }
         };
-        request.onsuccess = (e) => { 
-            db = e.target.result; 
-            displayProducts(); // Carica subito i prodotti all'avvio dell'app
-        };
+        request.onsuccess = (e) => { db = e.target.result; };
 
-        // --- FUNZIONE ATTIVAZIONE TELECAMERA A COMANDO ---
+        // --- GESTIONE CAMBIO AMBIENTE ---
+        function switchZone(zone) {
+            currentZone = zone;
+            document.getElementById('hub-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+            
+            // Personalizzazione dell'interfaccia a seconda della scelta
+            if (zone === 'freezer') {
+                document.getElementById('current-zone-title').innerText = "❄️ REPARTO FREEZER";
+                document.getElementById('camera-wrapper').style.display = 'none'; // Spegne l'OCR del tutto
+                document.getElementById('man-date').style.display = 'none'; // Nasconde l'input della data nel modulo
+            } else {
+                document.getElementById('current-zone-title').innerText = "🧊 REPARTO FRIGO";
+                document.getElementById('camera-wrapper').style.display = 'flex';
+                document.getElementById('man-date').style.display = 'block';
+                resetCameraWrapper();
+            }
+            displayProducts();
+        }
+
+        function goToHub() {
+            stopCameraStream();
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('hub-screen').style.display = 'flex';
+        }
+
+        function resetCameraWrapper() {
+            video.style.display = 'none';
+            viewfinder.style.display = 'none';
+            captureBtn.style.display = 'none';
+            cameraPlaceholder.style.display = 'flex';
+        }
+
+        function stopCameraStream() {
+            if (streamInstance) {
+                streamInstance.getTracks().forEach(track => track.stop());
+                streamInstance = null;
+            }
+        }
+
+        // --- CAMERA ED OCR ---
         async function startCamera() {
             try {
                 streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = streamInstance;
-                
-                // Mostra elementi grafici fotocamera e nascondi il segnaposto
                 video.style.display = 'block';
                 viewfinder.style.display = 'block';
                 captureBtn.style.display = 'block';
                 cameraPlaceholder.style.display = 'none';
-            } catch (err) {
-                alert("Impossibile accedere alla fotocamera. Controlla i permessi.");
-            }
+            } catch (err) { alert("Impossibile avviare la telecamera."); }
         }
 
-        // --- ACCETTAZIONE OCR SCAN ---
         captureBtn.addEventListener('click', async () => {
             if(!streamInstance) return;
             const ctx = canvas.getContext('2d');
@@ -149,12 +223,94 @@
                     const datePattern = /\b(\d{1,2})([./-])(\d{1,2})\2(\d{2,4})\b/;
                     const foundDate = text.match(datePattern);
                     tempProduct.date = foundDate ? foundDate[0].replace(/\s/g, "") : "";
-                    openManualModal(tempProduct.name, tempProduct.date);
+                    openManualModal(tempProduct.name, tempProduct.date, 1);
                     resetFlow();
                 }
-            } catch (e) { alert("Errore lettura testo."); }
+            } catch (e) { alert("Errore OCR."); }
         });
 
+        // --- STRUMENTO COMPRENSIONE VOCALE PER AMBIENTE ---
+        function startVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) { alert("Dettatura vocale non supportata."); return; }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'it-IT';
+            recognition.interimResults = false;
+
+            const originalPlaceholder = searchBar.placeholder;
+            searchBar.placeholder = currentZone === 'freezer' ? "🎙️ Ditta: Quantità e Nome cibo..." : "🎙️ Ditta: Quantità, Nome e Scadenza...";
+            searchBar.style.background = "#0c2340";
+            recognition.start();
+
+            recognition.onresult = (event) => {
+                searchBar.placeholder = originalPlaceholder;
+                searchBar.style.background = "#2a2a2a";
+                let speechToText = event.results[0][0].transcript.toLowerCase().trim();
+                
+                let qtyRilevata = 1;
+                const paroleNumeri = { "una": 1, "uno": 1, "due": 2, "tre": 3, "quattro": 4, "cinque": 5, "sei": 6, "sette": 7, "otto": 8, "nove": 9, "dieci": 10 };
+
+                let parole = speechToText.split(" ");
+                let primaParola = parole[0];
+
+                if (paroleNumeri[primaParola]) {
+                    qtyRilevata = paroleNumeri[primaParola];
+                    speechToText = parole.slice(1).join(" ");
+                } else if (!isNaN(parseInt(primaParola))) {
+                    qtyRilevata = parseInt(primaParola);
+                    speechToText = parole.slice(1).join(" ");
+                }
+
+                speechToText = speechToText.replace(/^(confezioni|confezione|scatole|scatola|barattoli|barattolo|pacchi|pacco|pezzi|pezzo|bottiglie|bottiglia)\s+(di\s+)?/i, "").trim();
+
+                // Se siamo in freezer saltiamo l'analisi della data
+                if (currentZone === 'freezer') {
+                    openManualModal(capitalize(speechToText), "", qtyRilevata);
+                    return;
+                }
+
+                // Logica data (solo Frigo)
+                let triggerWord = "scadenza";
+                if (!speechToText.includes(triggerWord)) triggerWord = "scade";
+                
+                if (speechToText.includes(triggerWord)) {
+                    const parti = speechToText.split(triggerWord);
+                    let nomeProdotto = parti[0].replace(/\b(il|del)\b/g, "").trim();
+                    const dataFormattata = analizzaDataVocale(parti[1].trim());
+                    openManualModal(capitalize(nomeProdotto), dataFormattata, qtyRilevata);
+                } else {
+                    openManualModal(capitalize(speechToText), "", qtyRilevata);
+                }
+            };
+        }
+
+        function analizzaDataVocale(testo) {
+            const mesi = { "gennaio":"01", "febbraio":"02", "marzo":"03", "aprile":"04", "maggio":"05", "giugno":"06", "luglio":"07", "agosto":"08", "settembre":"09", "ottobre":"10", "novembre":"11", "dicembre":"12" };
+            let testoPulito = testo.replace(/\b(il|del|di|anno|venti)\b/g, "").trim();
+            testoPulito = testoPulito.replace(/ventisei/g, "26").replace(/ventisette/g, "27").replace(/ventotto/g, "28");
+
+            for (let mese in mesi) {
+                if (testoPulito.includes(mese)) {
+                    let parti = testoPulito.split(mese);
+                    let giorno = parti[0].replace(/\D/g, '').trim().padStart(2, '0');
+                    let frammentoAnno = parti[1].replace(/\D/g, '').trim();
+                    let anno = new Date().getFullYear(); 
+                    if (frammentoAnno) anno = frammentoAnno.length === 2 ? "20" + frammentoAnno : frammentoAnno;
+                    return `${giorno}.${mesi[mese]}.${anno}`;
+                }
+            }
+            let cifre = testoPulito.match(/\d+/g);
+            if (cifre && cifre.length >= 2) {
+                let g = cifre[0].padStart(2, '0'); let m = cifre[1].padStart(2, '0');
+                let a = cifre[2] || new Date().getFullYear();
+                if (a.toString().length === 2) a = "20" + a;
+                return `${g}.${m}.${a}`;
+            }
+            return "";
+        }
+
+        // --- GESTIONE MODAL E INSERIMENTI ---
         function openManualModal(name = "", date = "", qty = 1, id = null) {
             editingId = id;
             document.getElementById('modal-title').innerText = id ? "Modifica Prodotto" : "Nuovo Prodotto";
@@ -169,8 +325,9 @@
         function saveManual() {
             const p = {
                 name: document.getElementById('man-name').value || "Senza nome",
-                date: document.getElementById('man-date').value || "00.00.0000",
-                qty: parseInt(document.getElementById('man-qty').value) || 1
+                date: currentZone === 'freezer' ? "" : (document.getElementById('man-date').value || "16.05.2026"),
+                qty: parseInt(document.getElementById('man-qty').value) || 1,
+                zone: currentZone // Salva se appartiene a frigo o freezer
             };
             if (editingId) p.id = editingId;
             const tx = db.transaction("products", "readwrite");
@@ -188,51 +345,78 @@
         function changeQty(id, delta) {
             const store = db.transaction("products", "readwrite").objectStore("products");
             store.get(id).onsuccess = (e) => {
-                const p = e.target.result;
-                p.qty = (p.qty || 1) + delta;
-                if (p.qty < 1) p.qty = 1; 
+                const p = e.target.result; p.qty = (p.qty || 1) + delta; if (p.qty < 1) p.qty = 1;
                 store.put(p).onsuccess = () => displayProducts();
             };
         }
 
         function deleteProduct(id) {
-            if (confirm("Vuoi eliminare definitivamente questo prodotto?")) {
+            if (confirm("Vuoi rimuovere l'elemento?")) {
                 const tx = db.transaction("products", "readwrite");
                 tx.objectStore("products").delete(id);
                 tx.oncomplete = () => displayProducts();
             }
         }
 
-        // --- LOGICA DI ORDINAMENTO DAL PIU VICINO AL PIU LONTANO ---
+        // --- VISUALIZZAZIONE COMPARTIMENTI FILTRATA ---
         function displayProducts(filter = "") {
             inventoryList.innerHTML = "";
             const store = db.transaction("products").objectStore("products");
             const all = [];
+            
             store.openCursor().onsuccess = (e) => {
                 const c = e.target.result;
-                if (c) { 
-                    if (c.value.name.toLowerCase().includes(filter.toLowerCase())) all.push(c.value); 
-                    c.continue(); 
+                if (c) {
+                    // Filtra prima per stringa inserita e POI per zona (Frigo vs Freezer)
+                    const matchesSearch = c.value.name.toLowerCase().includes(filter.toLowerCase());
+                    const productZone = c.value.zone || 'frigo'; // Per retrocompatibilità vecchi dati
+                    
+                    if (matchesSearch && productZone === currentZone) {
+                        all.push(c.value);
+                    }
+                    c.continue();
                 } else {
-                    // Ordina rigorosamente dal prodotto con scadenza più imminente (a) a quello più lontano (b)
-                    all.sort((a,b) => parseDate(a.date) - parseDate(b.date));
+                    // ORDINAMENTO STRATEGICO DI VISUALIZZAZIONE
+                    if (currentZone === 'freezer') {
+                        // Il freezer viene ordinato semplicemente in ordine alfabetico (A-Z)
+                        all.sort((a,b) => a.name.localeCompare(b.name));
+                    } else {
+                        // Il frigo mantiene l'ordinamento cronologico rigoroso per scadenza
+                        all.sort((a,b) => parseDate(a.date) - parseDate(b.date));
+                    }
                     
                     all.forEach(p => {
-                        const d = Math.ceil((parseDate(p.date) - new Date().setHours(0,0,0,0)) / 86400000);
                         const card = document.createElement('div');
                         card.className = 'product-card';
-                        card.style.borderLeftColor = d < 0 ? "#444" : (d <= 3 ? "var(--danger)" : (d <= 7 ? "var(--warning)" : "var(--success)"));
-                        card.innerHTML = `
-                            <div class="product-info"><b>${p.name}</b><span>Scadenza: ${p.date} ${d < 0 ? '❌ (Scaduto)' : ''}</span></div>
-                            <div class="qty-controls">
-                                <button onclick="changeQty(${p.id}, -1)">-</button>
-                                <span class="qty-val">${p.qty || 1}</span>
-                                <button onclick="changeQty(${p.id}, 1)">+</button>
-                            </div>
-                            <div class="actions">
-                                <button class="btn-edit" onclick="openManualModal('${p.name.replace(/'/g, "\\'")}', '${p.date}', ${p.qty || 1}, ${p.id})">✎</button>
-                                <button class="btn-delete" onclick="deleteProduct(${p.id})">🗑</button>
-                            </div>`;
+                        
+                        if (currentZone === 'freezer') {
+                            card.style.borderLeftColor = "var(--freezer)";
+                            card.innerHTML = `
+                                <div class="product-info"><b>${p.name}</b><span>❄️ Conservato in Freezer</span></div>
+                                <div class="qty-controls">
+                                    <button onclick="changeQty(${p.id}, -1)">-</button>
+                                    <span class="qty-val">${p.qty || 1}</span>
+                                    <button onclick="changeQty(${p.id}, 1)">+</button>
+                                </div>
+                                <div class="actions">
+                                    <button class="btn-edit" onclick="openManualModal('${p.name.replace(/'/g, "\\'")}', '', ${p.qty || 1}, ${p.id})">✎</button>
+                                    <button class="btn-delete" onclick="deleteProduct(${p.id})">🗑</button>
+                                </div>`;
+                        } else {
+                            const d = Math.ceil((parseDate(p.date) - new Date().setHours(0,0,0,0)) / 86400000);
+                            card.style.borderLeftColor = d < 0 ? "#444" : (d <= 3 ? "var(--danger)" : (d <= 7 ? "var(--warning)" : "var(--success)"));
+                            card.innerHTML = `
+                                <div class="product-info"><b>${p.name}</b><span>Scadenza: ${p.date} ${d < 0 ? '❌ (Scaduto)' : ''}</span></div>
+                                <div class="qty-controls">
+                                    <button onclick="changeQty(${p.id}, -1)">-</button>
+                                    <span class="qty-val">${p.qty || 1}</span>
+                                    <button onclick="changeQty(${p.id}, 1)">+</button>
+                                </div>
+                                <div class="actions">
+                                    <button class="btn-edit" onclick="openManualModal('${p.name.replace(/'/g, "\\'")}', '${p.date}', ${p.qty || 1}, ${p.id})">✎</button>
+                                    <button class="btn-delete" onclick="deleteProduct(${p.id})">🗑</button>
+                                </div>`;
+                        }
                         inventoryList.appendChild(card);
                     });
                 }
@@ -240,16 +424,15 @@
         }
 
         function parseDate(s) {
-            const p = s.split(/[./-]/);
-            if (p.length !== 3) return new Date(2100,0,1); // Manda in fondo le date non valide
+            const p = s.split(/[./-]/); if (p.length !== 3) return new Date(2100,0,1);
             let y = parseInt(p[2]); if (y < 100) y += 2000;
             return new Date(y, parseInt(p[1])-1, parseInt(p[0]));
         }
 
         searchBar.addEventListener('input', () => displayProducts(searchBar.value));
+        function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
         function updateUI(s) { const isD = s === 'date'; viewfinder.style.borderColor = isD ? "var(--danger)" : "var(--success)"; stepLabel.innerText = isD ? "2. DATA DI SCADENZA" : "1. NOME PRODOTTO"; stepLabel.style.background = isD ? "var(--danger)" : "var(--success)"; }
         function resetFlow() { currentStep = 'name'; updateUI('name'); }
     </script>
 </body>
 </html>
-

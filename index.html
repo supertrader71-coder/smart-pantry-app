@@ -3,21 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Smart Pantry Pro - Final</title>
+    <title>Smart Pantry Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <style>
         :root { --bg: #121212; --card: #1e1e1e; --primary: #007bff; --success: #28a745; --danger: #ff3b30; --warning: #ffcc00; --text: #ffffff; }
         body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Camera */
-        #camera-wrapper { position: relative; width: 100%; height: 25vh; background: #000; flex-shrink: 0; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        .viewfinder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 35%; border: 3px solid var(--success); border-radius: 12px; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); z-index: 5; }
+        /* Area Fotocamera Gestita */
+        #camera-wrapper { position: relative; width: 100%; height: 25vh; background: #000; flex-shrink: 0; display: flex; justify-content: center; align-items: center; border-bottom: 1px solid #333; }
+        video { width: 100%; height: 100%; object-fit: cover; display: none; }
+        .viewfinder { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 35%; border: 3px solid var(--success); border-radius: 12px; box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.6); z-index: 5; }
         .label-overlay { position: absolute; top: -30px; left: 0; background: var(--success); color: #000; padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; }
+        #camera-placeholder { color: #888; text-align: center; cursor: pointer; padding: 20px; font-weight: bold; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #1a1a1a; }
 
-        /* Controls */
+        /* Controlli */
         .controls { padding: 12px; background: var(--card); border-bottom: 1px solid #333; z-index: 10; }
-        .btn-main { background: #fff; color: #000; border: none; padding: 12px; border-radius: 30px; font-weight: bold; width: 100%; margin-bottom: 8px; font-size: 15px; }
+        .btn-main { background: #fff; color: #000; border: none; padding: 12px; border-radius: 30px; font-weight: bold; width: 100%; margin-bottom: 8px; font-size: 15px; display: none; }
         .btn-manual { background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 30px; width: 100%; margin-bottom: 10px; font-size: 14px; }
         #search-bar { width: 100%; padding: 10px 15px; border-radius: 20px; border: 1px solid #444; background: #2a2a2a; color: #fff; outline: none; box-sizing: border-box; }
         
@@ -26,14 +27,14 @@
         .modal-content { background: var(--card); padding: 20px; border-radius: 20px; width: 85%; max-width: 350px; }
         .modal-content input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #444; background: #121212; color: #fff; box-sizing: border-box; font-size: 16px; }
         
-        /* Inventory List */
+        /* Lista Inventario */
         .inventory { flex-grow: 1; overflow-y: auto; padding: 12px; }
         .product-card { background: var(--card); margin-bottom: 10px; padding: 12px; border-radius: 12px; display: flex; align-items: center; border-left: 5px solid var(--primary); gap: 10px; }
         .product-info { flex: 1; min-width: 0; }
         .product-info b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .product-info span { font-size: 12px; color: #aaa; }
         
-        /* Quantity & Actions */
+        /* Quantità e Azioni */
         .qty-controls { display: flex; align-items: center; gap: 8px; background: #2a2a2a; padding: 5px 10px; border-radius: 20px; }
         .qty-controls button { background: #444; border: none; color: white; width: 26px; height: 26px; border-radius: 50%; font-weight: bold; }
         .qty-val { min-width: 15px; text-align: center; font-weight: bold; font-size: 14px; }
@@ -49,6 +50,10 @@
 <body>
 
     <div id="camera-wrapper">
+        <div id="camera-placeholder" onclick="startCamera()">
+            <span>📸 Tocca qui per attivare la fotocamera</span>
+            <small style="font-size:11px; color:#666; margin-top:5px;">Necessario solo per scansione OCR</small>
+        </div>
         <video id="video" autoplay playsinline></video>
         <div class="viewfinder" id="viewfinder"><div id="step-label" class="label-overlay">1. NOME PRODOTTO</div></div>
     </div>
@@ -87,12 +92,15 @@
         const canvas = document.getElementById('crop-canvas');
         const stepLabel = document.getElementById('step-label');
         const viewfinder = document.getElementById('viewfinder');
+        const cameraPlaceholder = document.getElementById('camera-placeholder');
         
         let currentStep = 'name';
         let tempProduct = { name: '', date: '', qty: 1 };
         let editingId = null;
         let db;
+        let streamInstance = null;
 
+        // --- DATABASE INDEXED DB ---
         const request = indexedDB.open("PantryDB", 2);
         request.onupgradeneeded = (e) => {
             db = e.target.result;
@@ -100,11 +108,30 @@
                 db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
             }
         };
-        request.onsuccess = (e) => { db = e.target.result; displayProducts(); };
+        request.onsuccess = (e) => { 
+            db = e.target.result; 
+            displayProducts(); // Carica subito i prodotti all'avvio dell'app
+        };
 
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => video.srcObject = s);
+        // --- FUNZIONE ATTIVAZIONE TELECAMERA A COMANDO ---
+        async function startCamera() {
+            try {
+                streamInstance = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = streamInstance;
+                
+                // Mostra elementi grafici fotocamera e nascondi il segnaposto
+                video.style.display = 'block';
+                viewfinder.style.display = 'block';
+                captureBtn.style.display = 'block';
+                cameraPlaceholder.style.display = 'none';
+            } catch (err) {
+                alert("Impossibile accedere alla fotocamera. Controlla i permessi.");
+            }
+        }
 
+        // --- ACCETTAZIONE OCR SCAN ---
         captureBtn.addEventListener('click', async () => {
+            if(!streamInstance) return;
             const ctx = canvas.getContext('2d');
             const vW = video.videoWidth; const vH = video.videoHeight;
             const cW = vW * 0.75; const cH = vH * 0.35;
@@ -163,7 +190,7 @@
             store.get(id).onsuccess = (e) => {
                 const p = e.target.result;
                 p.qty = (p.qty || 1) + delta;
-                if (p.qty < 1) p.qty = 1; // Non scende sotto 1 col tasto meno (usa il cestino per eliminare)
+                if (p.qty < 1) p.qty = 1; 
                 store.put(p).onsuccess = () => displayProducts();
             };
         }
@@ -176,22 +203,27 @@
             }
         }
 
+        // --- LOGICA DI ORDINAMENTO DAL PIU VICINO AL PIU LONTANO ---
         function displayProducts(filter = "") {
             inventoryList.innerHTML = "";
             const store = db.transaction("products").objectStore("products");
             const all = [];
             store.openCursor().onsuccess = (e) => {
                 const c = e.target.result;
-                if (c) { if (c.value.name.toLowerCase().includes(filter.toLowerCase())) all.push(c.value); c.continue(); }
-                else {
+                if (c) { 
+                    if (c.value.name.toLowerCase().includes(filter.toLowerCase())) all.push(c.value); 
+                    c.continue(); 
+                } else {
+                    // Ordina rigorosamente dal prodotto con scadenza più imminente (a) a quello più lontano (b)
                     all.sort((a,b) => parseDate(a.date) - parseDate(b.date));
+                    
                     all.forEach(p => {
                         const d = Math.ceil((parseDate(p.date) - new Date().setHours(0,0,0,0)) / 86400000);
                         const card = document.createElement('div');
                         card.className = 'product-card';
                         card.style.borderLeftColor = d < 0 ? "#444" : (d <= 3 ? "var(--danger)" : (d <= 7 ? "var(--warning)" : "var(--success)"));
                         card.innerHTML = `
-                            <div class="product-info"><b>${p.name}</b><span>Scadenza: ${p.date}</span></div>
+                            <div class="product-info"><b>${p.name}</b><span>Scadenza: ${p.date} ${d < 0 ? '❌ (Scaduto)' : ''}</span></div>
                             <div class="qty-controls">
                                 <button onclick="changeQty(${p.id}, -1)">-</button>
                                 <span class="qty-val">${p.qty || 1}</span>
@@ -209,7 +241,7 @@
 
         function parseDate(s) {
             const p = s.split(/[./-]/);
-            if (p.length !== 3) return new Date(2100,0,1);
+            if (p.length !== 3) return new Date(2100,0,1); // Manda in fondo le date non valide
             let y = parseInt(p[2]); if (y < 100) y += 2000;
             return new Date(y, parseInt(p[1])-1, parseInt(p[0]));
         }
@@ -220,3 +252,4 @@
     </script>
 </body>
 </html>
+

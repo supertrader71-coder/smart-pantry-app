@@ -139,8 +139,7 @@
 
     <script>
         // CONFIGURAZIONE PASSWORD DI SICUREZZA
-        // Puoi cambiare "2608" con qualsiasi codice o parola tu voglia
-        const APP_PASSWORD = "2608"; 
+        const APP_PASSWORD = "1234"; 
 
         const video = document.getElementById('video');
         const captureBtn = document.getElementById('capture-btn');
@@ -169,7 +168,7 @@
         function checkPassword() {
             const inputVal = document.getElementById('pin-input').value;
             if (inputVal === APP_PASSWORD) {
-                sessionStorage.setItem('pantry_unlocked', 'true'); // Ricorda lo sblocco per questa sessione
+                sessionStorage.setItem('pantry_unlocked', 'true');
                 document.getElementById('password-screen').style.display = 'none';
                 document.getElementById('hub-screen').style.display = 'flex';
             } else {
@@ -178,21 +177,51 @@
             }
         }
 
-        // Sblocco premendo il tasto Invio sulla tastiera digitale
         document.getElementById('pin-input').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') checkPassword();
         });
 
 
-        // --- DATABASE INDEXED DB V3 ---
-        const request = indexedDB.open("PantryDB", 3);
+        // --- CARICAMENTO E AUTO-RECUPERO DATI (STRUTTURA AGGIORNATA PER EVITARE PERDITE) ---
+        // Aumentando la versione a 5, forziamo il browser a riallineare i vecchi file persi
+        const request = indexedDB.open("PantryDB", 5);
+        
         request.onupgradeneeded = (e) => {
             db = e.target.result;
             if (!db.objectStoreNames.contains("products")) {
                 db.createObjectStore("products", { keyPath: "id", autoIncrement: true });
             }
         };
-        request.onsuccess = (e) => { db = e.target.result; };
+        
+        request.onsuccess = (e) => { 
+            db = e.target.result; 
+            recuperaEValeVecchiDati(); // Esegue il salvataggio automatico se necessario
+        };
+
+        // Funzione scudo: controlla se ci sono prodotti non formattati correttamente e li aggiusta
+        function recuperaEValeVecchiDati() {
+            const tx = db.transaction("products", "readwrite");
+            const store = tx.objectStore("products");
+            
+            store.openCursor().onsuccess = (event) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const item = cursor.value;
+                    let aggiornato = false;
+                    
+                    // Se un vecchio prodotto non ha la zona specificata, di default era Frigo
+                    if (!item.zone) {
+                        item.zone = 'frigo';
+                        aggiornato = true;
+                    }
+                    
+                    if (aggiornato) {
+                        store.put(item);
+                    }
+                    cursor.continue();
+                }
+            };
+        }
 
         // --- LOGICA CAMBIO REPARTO ---
         function switchZone(zone) {
@@ -415,6 +444,7 @@
         // --- RENDERING DELLA LISTA ---
         function displayProducts(filter = "") {
             inventoryList.innerHTML = "";
+            if(!db) return;
             const store = db.transaction("products").objectStore("products");
             const all = [];
             
@@ -485,4 +515,5 @@
     </script>
 </body>
 </html>
+
 

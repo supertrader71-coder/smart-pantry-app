@@ -483,50 +483,6 @@
         function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
         function updateUI(s) { const isD = s === 'date'; viewfinder.style.borderColor = isD ? "var(--danger)" : "var(--success)"; stepLabel.innerText = isD ? "2. DATA DI SCADENZA" : "1. NOME PRODOTTO"; stepLabel.style.background = isD ? "var(--danger)" : "var(--success)"; }
 
-
-// ==========================================
-// CODICE DI TRASFERIMENTO SICURO (ANTI-DUPLICATI)
-// ==========================================
-setTimeout(async () => {
-    const req = indexedDB.open("PantryDB");
-    req.onsuccess = function(e) {
-        const dbLocale = e.target.result;
-        if (!dbLocale.objectStoreNames.contains("products")) return;
-        const tx = dbLocale.transaction("products", "readwrite");
-        const store = tx.objectStore("products");
-        
-        store.getAll().onsuccess = async function(event) {
-            const vecchiProdotti = event.target.result;
-            if (vecchiProdotti.length === 0) return; // Se è già vuoto, non fa nulla
-            
-            alert(`Trovati ${vecchiProdotti.length} prodotti originari sul telefono. Trasferimento sicuro in corso...`);
-            
-            const pronti = vecchiProdotti.map(p => ({ name: p.name, date: p.date || "", qty: p.qty || 1, zone: p.zone || "frigo" }));
-            const { error } = await _supabase.from('products').insert(pronti);
-            
-            if (error) { 
-                alert("Errore Cloud: " + error.message); 
-            } else { 
-                // Lo "scudo": svuota la memoria locale del telefono dopo il successo, così non duplica più
-                const puliziaTx = dbLocale.transaction("products", "readwrite");
-                puliziaTx.objectStore("products").clear();
-                puliziaTx.oncomplete = function() {
-                    alert("🎉 TRASFERIMENTO PULITO COMPLETATO! I dati locali sono stati sincronizzati sul Cloud.");
-                    location.reload();
-                };
-            }
-        };
-    };
-}, 2000);
-// ==========================================
-
-
-
-        
-
-
-        
-
  </script>
 </body>
 </html>

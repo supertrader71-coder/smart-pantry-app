@@ -483,7 +483,7 @@
         function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
         function updateUI(s) { const isD = s === 'date'; viewfinder.style.borderColor = isD ? "var(--danger)" : "var(--success)"; stepLabel.innerText = isD ? "2. DATA DI SCADENZA" : "1. NOME PRODOTTO"; stepLabel.style.background = isD ? "var(--danger)" : "var(--success)"; }
 
-      (function() {
+(function() {
     // 1. Apriamo il vecchio database locale sul telefono
     const req = indexedDB.open("PantryDB");
     req.onsuccess = function(e) {
@@ -530,10 +530,9 @@
     };
     req.onerror = function() { alert("Errore nell'apertura del database locale."); };
 })();
-  
+
+
     </script>
 </body>
 </html>
-
-
 

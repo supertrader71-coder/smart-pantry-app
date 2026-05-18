@@ -531,7 +531,32 @@
     req.onerror = function() { alert("Errore nell'apertura del database locale."); };
 })();
 
+        
+// ==========================================
+// CODICE TEMPORANEO DI TRASFERIMENTO DATI
+// ==========================================
+setTimeout(async () => {
+    const req = indexedDB.open("PantryDB");
+    req.onsuccess = function(e) {
+        const dbLocale = e.target.result;
+        if (!dbLocale.objectStoreNames.contains("products")) return;
+        const store = dbLocale.transaction("products", "readonly").objectStore("products");
+        store.getAll().onsuccess = async function(event) {
+            const vecchiProdotti = event.target.result;
+            if (vecchiProdotti.length === 0) return;
+            alert(`Trovati ${vecchiProdotti.length} prodotti sul telefono! Trasferimento in corso...`);
+            const pronti = vecchiProdotti.map(p => ({ name: p.name, date: p.date || "", qty: p.qty || 1, zone: p.zone || "frigo" }));
+            const { error } = await _supabase.from('products').insert(pronti);
+            if (error) { alert("Errore Cloud: " + error.message); } 
+            else { alert("🎉 TRASFERIMENTO COMPLETATO! Tutti i prodotti sono ora online."); location.reload(); }
+        };
+    };
+}, 2000);
+// ==========================================
 
+
+        
+        
     </script>
 </body>
 </html>
